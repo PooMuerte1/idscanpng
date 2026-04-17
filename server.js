@@ -13,10 +13,17 @@ const ROBLOX_COOKIE_FULL = process.env.ROBLOX_COOKIE_FULL || "";
 app.use(express.static("public"));
 
 function getTemplateIdFromXml(xml) {
-  const match = xml.match(
-    /<url>\s*https?:\/\/(?:www\.)?roblox\.com\/asset\/\?id=(\d+)\s*<\/url>/i
-  );
-  return match ? match[1] : null;
+  const patterns = [
+    /<url>\s*https?:\/\/(?:www\.)?roblox\.com\/asset\/\?id=(\d+)\s*<\/url>/i,
+    /<url>\s*rbxassetid:\/\/(\d+)\s*<\/url>/i,
+    /rbxassetid:\/\/(\d+)/i,
+    /asset\/\?id=(\d+)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = xml.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 function buildHeaders() {
@@ -144,6 +151,7 @@ app.get("/api/download/:id", async (req, res) => {
       return res.status(422).json({
         error:
           "No se encontro un ID de plantilla valido en la respuesta. Verifica que el ID sea de Shirt/Pants clasico.",
+        sample: xmlText.slice(0, 300),
       });
     }
 
