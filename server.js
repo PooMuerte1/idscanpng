@@ -89,12 +89,17 @@ function httpsGet(url, timeoutMs, maxRedirects = 5) {
   });
 }
 
-async function readText(response) {
+async function readBuffer(response) {
   const chunks = [];
   for await (const chunk of response.stream) {
     chunks.push(chunk);
   }
-  return Buffer.concat(chunks).toString("utf8");
+  return Buffer.concat(chunks);
+}
+
+async function readText(response) {
+  const buffer = await readBuffer(response);
+  return buffer.toString("utf8");
 }
 
 app.get("/api/download/:id", async (req, res) => {
@@ -137,14 +142,17 @@ app.get("/api/download/:id", async (req, res) => {
       });
     }
 
-    if (firstResponse.contentType.includes("image/")) {
-      res.setHeader("Content-Type", firstResponse.contentType);
+    const firstBody = await readBuffer(firstResponse);
+    const looksLikeXml = firstBody.slice(0, 200).toString("utf8").trim().startsWith("<");
+
+    if (!looksLikeXml) {
+      res.setHeader("Content-Type", firstResponse.contentType || "image/png");
       res.setHeader("Content-Disposition", `attachment; filename="roblox-${inputId}.png"`);
       res.setHeader("Cache-Control", "no-store");
-      return firstResponse.stream.pipe(res);
+      return res.end(firstBody);
     }
 
-    const xmlText = await readText(firstResponse);
+    const xmlText = firstBody.toString("utf8");
     const templateId = getTemplateIdFromXml(xmlText);
 
     if (!templateId) {
