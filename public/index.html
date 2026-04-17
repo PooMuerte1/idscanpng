@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Descargar PNG de Roblox</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0f172a;
+        color: #e2e8f0;
+        font-family: Arial, sans-serif;
+      }
+      .card {
+        width: min(90vw, 460px);
+        background: #111827;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 24px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.2rem;
+      }
+      p {
+        margin: 0 0 16px;
+        color: #94a3b8;
+      }
+      form {
+        display: flex;
+        gap: 8px;
+      }
+      input,
+      button {
+        border: 1px solid #475569;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 0.95rem;
+      }
+      input {
+        flex: 1;
+        background: #0b1220;
+        color: #e2e8f0;
+      }
+      button {
+        background: #2563eb;
+        color: white;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.65;
+        cursor: wait;
+      }
+      #status {
+        margin-top: 14px;
+        min-height: 20px;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Descargador de PNG Roblox</h1>
+      <p>Pega un ID de asset y descargaremos el PNG final automaticamente.</p>
+      <form id="download-form">
+        <input id="asset-id" type="text" inputmode="numeric" placeholder="Ej: 87212507481307" required />
+        <button id="download-btn" type="submit">Descargar</button>
+      </form>
+      <div id="status"></div>
+    </main>
+
+    <script>
+      const form = document.getElementById("download-form");
+      const input = document.getElementById("asset-id");
+      const button = document.getElementById("download-btn");
+      const status = document.getElementById("status");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const id = input.value.trim();
+        if (!/^\d+$/.test(id)) {
+          status.textContent = "Ingresa un ID numerico valido.";
+          return;
+        }
+
+        button.disabled = true;
+        status.textContent = "Procesando y preparando descarga...";
+
+        try {
+          const response = await fetch(`/api/download/${id}`);
+
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            status.textContent = payload.error || "No se pudo descargar el archivo.";
+            return;
+          }
+
+          const blob = await response.blob();
+          const contentDisposition = response.headers.get("content-disposition") || "";
+          const filenameMatch = contentDisposition.match(/filename="(.+)"/i);
+          const filename = filenameMatch ? filenameMatch[1] : `roblox-${id}.png`;
+
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+
+          status.textContent = "Descarga completada.";
+        } catch {
+          status.textContent = "Error de red al procesar la descarga.";
+        } finally {
+          button.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
