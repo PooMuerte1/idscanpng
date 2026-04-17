@@ -270,18 +270,22 @@ app.get("/api/diag/:id", async (req, res) => {
       });
     }
 
-    if (firstResponse.contentType.includes("image/")) {
-      firstResponse.stream.resume();
+    const firstBody = await readBuffer(firstResponse);
+    const preview = firstBody.slice(0, 200).toString("utf8").trim();
+    const looksLikeXml = preview.startsWith("<");
+
+    if (!looksLikeXml) {
       return res.status(200).json({
         ...diagnostics,
-        step: "first_asset_image",
+        step: "direct_binary",
         ok: true,
-        message: "El asset inicial ya es imagen, no requiere segundo fetch.",
+        message: "El asset se devuelve directamente como archivo binario.",
+        size: firstBody.length,
       });
     }
 
     diagnostics.step = "xml_parse";
-    const xmlText = await readText(firstResponse);
+    const xmlText = firstBody.toString("utf8");
     const templateId = getTemplateIdFromXml(xmlText);
 
     if (!templateId) {
@@ -290,6 +294,7 @@ app.get("/api/diag/:id", async (req, res) => {
         step: "xml_parse",
         ok: false,
         error: "No se encontro templateId en XML.",
+        sample: xmlText.slice(0, 300),
       });
     }
 
