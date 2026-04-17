@@ -275,12 +275,25 @@ app.get("/api/diag/:id", async (req, res) => {
     const looksLikeXml = preview.startsWith("<");
 
     if (!looksLikeXml) {
+      const magic = firstBody.slice(0, 8);
+      const magicHex = magic.toString("hex");
+      const isPng = magicHex.startsWith("89504e47");
+      const isJpeg = magicHex.startsWith("ffd8ff");
+      const isRbxm = firstBody.slice(0, 7).toString("ascii") === "<roblox";
+      let format = "unknown";
+      if (isPng) format = "png";
+      else if (isJpeg) format = "jpeg";
+      else if (isRbxm) format = "rbxm";
+
       return res.status(200).json({
         ...diagnostics,
         step: "direct_binary",
         ok: true,
         message: "El asset se devuelve directamente como archivo binario.",
         size: firstBody.length,
+        format,
+        magicHex,
+        preview: preview.slice(0, 120),
       });
     }
 
