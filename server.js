@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const https = require("node:https");
+const zlib = require("node:zlib");
 const { URL } = require("node:url");
 
 const app = express();
@@ -38,6 +39,7 @@ function buildHeaders() {
     "Sec-Fetch-Site": "none",
     "Sec-Fetch-User": "?1",
     "Upgrade-Insecure-Requests": "1",
+    "Accept-Encoding": "identity",
     Referer: "https://www.roblox.com/",
   };
 
@@ -72,12 +74,23 @@ function httpsGet(url, timeoutMs, maxRedirects = 5) {
         return;
       }
 
+      const encoding = (res.headers["content-encoding"] || "").toLowerCase();
+      let stream = res;
+      if (encoding === "gzip") {
+        stream = res.pipe(zlib.createGunzip());
+      } else if (encoding === "deflate") {
+        stream = res.pipe(zlib.createInflate());
+      } else if (encoding === "br") {
+        stream = res.pipe(zlib.createBrotliDecompress());
+      }
+
       resolve({
         status,
         ok: status >= 200 && status < 300,
         headers: res.headers,
-        stream: res,
+        stream,
         contentType: (res.headers["content-type"] || "").toLowerCase(),
+        encoding,
       });
     });
 
