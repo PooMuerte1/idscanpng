@@ -318,14 +318,13 @@ app.get("/api/diag/:id", async (req, res) => {
       REQUEST_TIMEOUT_MS
     );
 
-    diagnostics.secondResponse = {
-      status: imageResponse.status,
-      ok: imageResponse.ok,
-      contentType: imageResponse.contentType,
-    };
-    imageResponse.stream.resume();
-
     if (!imageResponse.ok) {
+      imageResponse.stream.resume();
+      diagnostics.secondResponse = {
+        status: imageResponse.status,
+        ok: imageResponse.ok,
+        contentType: imageResponse.contentType,
+      };
       return res.status(200).json({
         ...diagnostics,
         step: "second_asset_request",
@@ -335,11 +334,32 @@ app.get("/api/diag/:id", async (req, res) => {
       });
     }
 
+    const secondBody = await readBuffer(imageResponse);
+    const secondMagicHex = secondBody.slice(0, 8).toString("hex");
+    const secondPreview = secondBody.slice(0, 200).toString("utf8");
+    const isPngSecond = secondMagicHex.startsWith("89504e47");
+    const isJpegSecond = secondMagicHex.startsWith("ffd8ff");
+    const isRbxmSecond = secondPreview.trim().startsWith("<roblox");
+    let secondFormat = "unknown";
+    if (isPngSecond) secondFormat = "png";
+    else if (isJpegSecond) secondFormat = "jpeg";
+    else if (isRbxmSecond) secondFormat = "rbxm";
+
+    diagnostics.secondResponse = {
+      status: imageResponse.status,
+      ok: imageResponse.ok,
+      contentType: imageResponse.contentType,
+      size: secondBody.length,
+      format: secondFormat,
+      magicHex: secondMagicHex,
+      sample: isRbxmSecond ? secondPreview.slice(0, 300) : null,
+    };
+
     return res.status(200).json({
       ...diagnostics,
       step: "done",
       ok: true,
-      message: "Diagnostico completado. El flujo de descarga deberia funcionar.",
+      message: "Diagnostico completado.",
     });
   } catch (error) {
     return res.status(500).json({
